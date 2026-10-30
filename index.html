@@ -1,0 +1,177 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Dream House</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:#f3f7fb;color:#24364b;font-family:Arial,sans-serif}
+h1{text-align:center}
+.houses{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.house{border:3px solid #34495e;border-radius:14px;overflow:hidden;background:white}
+.house h2{text-align:center;color:white;margin:0;padding:10px;background:#ef5942}
+.house.b h2{background:#438fe2}
+.rooms{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:150px 150px 120px}
+.room{position:relative;overflow:hidden;border:1px solid #34495e;padding:7px}
+.room:nth-child(1){background:#fff9e8}
+.room:nth-child(2){background:#eaf3ff}
+.room:nth-child(3){background:#fff0eb}
+.room:nth-child(4){background:#fff4e2}
+.room:nth-child(5){background:#e8fbf4;grid-column:1/3}
+.room-name{position:relative;z-index:2;background:white;padding:4px 7px;border-radius:6px;font-size:12px}
+.item{position:absolute;left:12px;top:40px;width:76px;height:70px;min-width:48px;min-height:48px;max-width:90%;max-height:85%;resize:both;overflow:auto;border:1px solid #ccd8e5;border-radius:9px;background:#ffffffed;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:move;z-index:3;touch-action:none}
+.item .emoji{font-size:30px}
+.item small{font-size:10px}
+.panel{margin-top:15px;background:white;border-radius:14px;padding:14px}
+.toolbar{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px}
+.tool{padding:8px 3px;min-height:75px;border:2px solid #dce5ef;border-radius:10px;background:#f8fafd;cursor:pointer}
+.tool span{display:block;font-size:26px}
+button{font:inherit}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.actions button{border:0;border-radius:9px;padding:10px 14px;background:#438fe2;color:white;cursor:pointer}
+.actions .gray{background:#64748b}
+#status{margin-top:10px;font-size:13px}
+@media(max-width:650px){.houses{grid-template-columns:1fr}.rooms{grid-template-rows:130px 130px 110px}}
+</style>
+</head>
+<body>
+<h1>🏡 My Dream House</h1>
+<p style="text-align:center">가구를 골라 나만의 집을 꾸며 보세요!</p>
+
+<div class="houses">
+ <section class="house">
+  <h2>House A</h2><div class="rooms" id="roomsA"></div>
+ </section>
+ <section class="house b">
+  <h2>House B</h2><div class="rooms" id="roomsB"></div>
+ </section>
+</div>
+
+<section class="panel">
+ <h3>🧸 가구와 물건 고르기</h3>
+ <p>아이템을 누른 뒤 방을 선택하세요. 방 안에서는 끌어서 이동하고 오른쪽 아래 모서리로 크기를 바꾸세요. 두 번 클릭하면 삭제됩니다.</p>
+ <div class="toolbar" id="toolbar"></div>
+ <div class="actions">
+  <button onclick="compare()">두 집 비교하기</button>
+  <button class="gray" onclick="undo()">되돌리기</button>
+  <button class="gray" onclick="resetAll()">처음부터 다시</button>
+ </div>
+ <div id="status">먼저 아이템을 선택해 보세요!</div>
+</section>
+
+<script>
+const rooms=[
+ ["bedroom","Bedroom (침실)"],
+ ["bathroom","Bathroom (욕실)"],
+ ["kitchen","Kitchen (주방)"],
+ ["living","Living Room (거실)"],
+ ["garden","Garden (정원)"]
+];
+const items=[
+ ["bed","🛏️","침대"],["sofa","🛋️","소파"],
+ ["table","🟪","탁자"],["chair","🪑","의자"],
+ ["desk","🗄️","책상"],["bookshelf","📚","책장"],
+ ["bathtub","🛁","욕조"],["toilet","🚽","변기"],
+ ["sink","🚰","세면대"],["refrigerator","🧊","냉장고"],
+ ["tv","📺","TV"],["computer","💻","컴퓨터"],
+ ["lamp","💡","스탠드"],["wardrobe","🚪","옷장"],
+ ["stove","🍳","가스레인지"],["dining","🍽️","식탁"],
+ ["plant","🪴","화분"],["tree","🌳","나무"],
+ ["flower","🌷","꽃"],["swing","🎠","그네"],
+ ["pool","🏊","수영장"],["rug","🟠","러그"],
+ ["clock","🕒","시계"],["shower","🚿","샤워기"]
+];
+let selected=null;
+let history=[];
+const $=id=>document.getElementById(id);
+
+function renderRooms(){
+ ["A","B"].forEach(h=>{
+  rooms.forEach(([key,label])=>{
+   const room=document.createElement("div");
+   room.className="room";
+   room.dataset.house=h;
+   room.dataset.room=key;
+   const name=document.createElement("span");
+   name.className="room-name";
+   name.textContent=label;
+   room.append(name);
+   room.onclick=()=>{if(selected)addItem(selected,h,key)};
+   $("rooms"+h).append(room);
+  });
+ });
+}
+function renderToolbar(){
+ items.forEach(([id,emoji,name])=>{
+  const b=document.createElement("button");
+  b.className="tool";
+  b.innerHTML=`<span>${emoji}</span><strong>${name}</strong>`;
+  b.onclick=()=>{
+   selected=id;
+   $("status").textContent=name+" 선택됨! 놓을 방을 클릭하세요.";
+  };
+  $("toolbar").append(b);
+ });
+}
+function addItem(id,h,key){
+ const info=items.find(x=>x[0]===id);
+ const room=document.querySelector(
+  `.room[data-house="${h}"][data-room="${key}"]`
+ );
+ if(room.querySelectorAll(".item").length>=12){
+  $("status").textContent="이 방에는 아이템을 12개까지 놓을 수 있어요.";
+  return;
+ }
+ const node=document.createElement("button");
+ node.className="item";
+ node.innerHTML=`<span class="emoji">${info[1]}</span><small>${info[2]}</small>`;
+ const n=room.querySelectorAll(".item").length;
+ node.style.left=(12+(n%3)*82)+"px";
+ node.style.top=(40+Math.floor(n/3)*76)+"px";
+ node.title="끌어서 이동 · 모서리로 크기 조절 · 두 번 클릭해서 삭제";
+ node.onclick=e=>e.stopPropagation();
+
+ let moving=false,dx=0,dy=0;
+ node.onpointerdown=e=>{
+  if(e.offsetX>node.clientWidth-16&&e.offsetY>node.clientHeight-16)return;
+  moving=true;
+  const r=node.getBoundingClientRect();
+  dx=e.clientX-r.left;dy=e.clientY-r.top;
+  node.setPointerCapture(e.pointerId);
+ };
+ node.onpointermove=e=>{
+  if(!moving)return;
+  const r=room.getBoundingClientRect();
+  node.style.left=Math.max(0,Math.min(room.clientWidth-node.offsetWidth,e.clientX-r.left-dx))+"px";
+  node.style.top=Math.max(0,Math.min(room.clientHeight-node.offsetHeight,e.clientY-r.top-dy))+"px";
+ };
+ node.onpointerup=()=>moving=false;
+ node.onpointercancel=()=>moving=false;
+ node.ondblclick=()=>{node.remove();$("status").textContent="아이템을 삭제했어요."};
+ room.append(node);
+ history.push(node);
+ $("status").textContent=h+" 집에 "+info[2]+"을 놓았어요!";
+}
+function compare(){
+ ["A","B"].forEach(h=>{
+  const count=document.querySelectorAll(`#rooms${h} .item`).length;
+  $("status").textContent+=" House "+h+": "+count+"개.";
+ });
+}
+function undo(){
+ const node=history.pop();
+ if(node&&node.isConnected)node.remove();
+ $("status").textContent="마지막 아이템을 되돌렸어요.";
+}
+function resetAll(){
+ document.querySelectorAll(".room .item").forEach(x=>x.remove());
+ history=[];
+ $("status").textContent="집을 비웠어요. 다시 꾸며 보세요!";
+}
+renderRooms();
+renderToolbar();
+</script>
+</body>
+</html>
